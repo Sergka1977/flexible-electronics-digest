@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Гибкий слой — дайджест гибкой электроники</title>
+  <meta name="description" content="Дайджест гибкой электроники: 11 проверенных публикаций о печатных схемах, носимых сенсорах и новых материалах за 9 октября — 9 ноября 2026 года.">
+  <meta name="theme-color" content="#f4fbfd">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Гибкий слой — дайджест гибкой электроники">
+  <meta property="og:description" content="11 проверенных публикаций о гибких материалах, печатных схемах и носимых сенсорах. Только реальные источники и ссылки.">
+  <meta property="og:locale" content="ru_RU">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <a class="skip-link" href="#main">Перейти к содержанию</a>
+
+  <header class="site-header" id="top">
+    <div class="container header-inner">
+      <a class="brand" href="{{ url_for('index') }}">
+        <span class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+        <span class="brand-text">
+          <strong>Гибкий слой</strong>
+          <small>дайджест гибкой электроники</small>
+        </span>
+      </a>
+
+      <nav class="nav" id="main-nav" aria-label="Основная навигация">
+        <ul class="nav-list">
+          <li><a href="#news">Дайджест</a></li>
+          <li><a href="#topics">Темы</a></li>
+          <li><a href="#organizations">Организации</a></li>
+          <li><a href="#method">Методика</a></li>
+        </ul>
+      </nav>
+
+      <div class="header-actions">
+        <a class="btn btn-ghost header-subscribe" href="#subscribe">Подписаться</a>
+        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="Открыть меню">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-glow hero-glow-a" aria-hidden="true"></div>
+      <div class="hero-glow hero-glow-b" aria-hidden="true"></div>
+
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">
+            <span class="eyebrow-dot" aria-hidden="true"></span>
+            {{ meta.edition }} · {{ period_display }}
+          </p>
+          <h1 id="hero-title">Электроника, которая <span class="grad">гнётся, дышит и чувствует</span></h1>
+          <p class="lead"><span id="hero-lead-count">{{ stats["items"] }}</span> проверенных публикаций о гибких материалах, печатных схемах и носимых сенсорах. Только реальные источники, даты и ссылки — без выдуманных новостей и вакансий.</p>
+
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#news">
+              Читать дайджест
+              <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5"/></svg>
+            </a>
+            <a class="btn btn-secondary" href="#method">Как мы отбираем</a>
+          </div>
+
+          <dl class="hero-facts">
+            <div>
+              <dt>Публикаций</dt>
+              <dd id="hero-count">{{ stats["items"] }}</dd>
+            </div>
+            <div>
+              <dt>Тем</dt>
+              <dd>{{ stats.topics }}</dd>
+            </div>
+            <div>
+              <dt>Дней в окне</dt>
+              <dd>{{ stats.days }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="hero-visual" aria-hidden="true">
+          <div class="device">
+            <div class="device-bar">
+              <span class="device-live"><i></i> live</span>
+              <span>flex signal / 01</span>
+              <span class="device-dots"><i></i><i></i><i></i></span>
+            </div>
+            <div class="device-screen">
+              <svg class="device-chart" viewBox="0 0 420 170" role="presentation">
+                <defs>
+                  <linearGradient id="chart-line" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#06b6d4"/>
+                    <stop offset="100%" stop-color="#2563eb"/>
+                  </linearGradient>
+                  <linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#06b6d4" stop-opacity=".28"/>
+                    <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <g class="device-grid">
+                  <path d="M0 34h420M0 74h420M0 114h420M0 154h420"/>
+                  <path d="M70 0v170M140 0v170M210 0v170M280 0v170M350 0v170"/>
+                </g>
+                <path class="device-area" d="M0 126 C24 126 30 74 52 74 S82 118 106 118 S138 42 164 42 S198 132 224 132 S258 54 284 54 S318 112 346 112 S388 34 420 34 V170 H0 Z"/>
+                <path class="device-line" d="M0 126 C24 126 30 74 52 74 S82 118 106 118 S138 42 164 42 S198 132 224 132 S258 54 284 54 S318 112 346 112 S388 34 420 34"/>
+              </svg>
+              <div class="device-number"><span id="device-count">{{ stats["items"] }}</span><small>публикаций</small></div>
+              <span class="device-pulse">signal</span>
+            </div>
+            <div class="device-meta">
+              <div><b>{{ stats.topics }}</b><span>тем</span></div>
+              <div><b>{{ stats.days }}</b><span>{{ stats.days_label }}</span></div>
+              <div><b>100%</b><span>источников</span></div>
+            </div>
+          </div>
+          <span class="float-chip chip-a">MXene</span>
+          <span class="float-chip chip-b">wearable</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="source-strip" aria-label="Источники выпуска">
+      <div class="container source-strip-inner">
+        <span class="source-strip-label">Источники выпуска</span>
+        <ul class="source-list" id="source-list">
+          {% for source in sources %}
+          <li>{{ source }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" id="news" aria-labelledby="news-title">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-head-copy">
+            <p class="kicker">Дайджест</p>
+            <h2 id="news-title">Главное за {{ stats.days }} {{ stats.days_label }}</h2>
+            <p class="section-lead">От самозаряжающихся датчиков до гибких солнечных модулей. Выберите тему, чтобы отфильтровать выпуск, и переходите к первоисточнику.</p>
+          </div>
+          <div class="digest-controls">
+            <div class="completeness {{ 'is-ok' if is_complete else 'is-warning' }}" id="completeness-badge">
+              <span class="status-dot" aria-hidden="true"></span>
+              <span id="completeness-text">{{ stats["items"] }} из {{ target_count }} проверено</span>
+            </div>
+            <button
+              class="btn btn-refresh"
+              type="button"
+              id="refresh-button"
+              aria-describedby="refresh-hint"
+            >
+              <svg class="icon" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M16.5 8.5A6.5 6.5 0 1 0 17 12M16.5 4.5v4h-4"/>
+              </svg>
+              <span class="btn-refresh-label">Обновить подборку</span>
+            </button>
+            <p class="refresh-hint" id="refresh-hint">Заменит карточки на другой проверенный набор за тот же период.</p>
+          </div>
+        </div>
+
+        {% if not is_complete %}
+        <div class="notice" role="status">
+          <strong>Список неполный.</strong>
+          В выпуске {{ stats["items"] }} из {{ meta.target_count }} материалов{% if not dates_in_window %}, и не все даты попадают в окно {{ period_display }}{% endif %}. Мы не добавляем карточки ради количества: неподтверждённые публикации остаются за пределами дайджеста.
+        </div>
+        {% endif %}
+
+        <div class="filters" id="topics" aria-label="Фильтр материалов по темам">
+          {% for f in filters %}
+          <button
+            type="button"
+            class="filter-btn"
+            data-filter="{{ f.slug }}"
+            aria-pressed="{{ 'true' if f.slug == 'all' else 'false' }}"
+            title="{{ f.description }}"
+          >
+            <span>{{ f.label }}</span>
+            <span class="filter-count" data-count="{{ f.slug }}">{{ counts[f.slug] }}</span>
+          </button>
+          {% endfor %}
+        </div>
+
+        <p class="filter-status" id="filter-status" role="status" aria-live="polite">
+          Показано {{ stats["items"] }} из {{ stats["items"] }} материалов
+        </p>
+        <p class="refresh-status" id="refresh-status" role="status" aria-live="polite"></p>
+
+        <div class="news-grid" id="news-grid">
+          {% for item in items %}
+          <article
+            class="news-card tone-{{ item.tone }}"
+            data-reveal
+            data-topics="{{ item.topics|join(' ') }}"
+            style="--delay: {{ loop.index0 * 45 }}ms"
+          >
+            <div class="card-visual">
+              <div class="card-orbit" aria-hidden="true"></div>
+              <span class="card-tag">{{ item.visual }}</span>
+              <span class="card-index">{{ "%02d"|format(item.number) }}</span>
+              <svg class="card-wave" viewBox="0 0 300 60" aria-hidden="true">
+                <path d="M0 42 C25 42 30 20 55 20 S85 44 110 44 S145 12 170 12 S205 48 230 48 S265 26 300 26"/>
+              </svg>
+            </div>
+
+            <div class="card-body">
+              <div class="card-meta">
+                <span class="card-source">{{ item.source }}</span>
+                {% if item.via %}<span class="card-via">· {{ item.via }}</span>{% endif %}
+                <time datetime="{{ item.date }}">{{ item.date_display }}</time>
+              </div>
+
+              <h3 class="card-title">
+                <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+              </h3>
+              <p class="card-summary">{{ item.summary }}</p>
+
+              <ul class="tag-list" aria-label="Темы материала">
+                {% for tag in item.tags %}
+                <li class="tag">{{ tag }}</li>
+                {% endfor %}
+              </ul>
+
+              <div class="card-footer">
+                <span class="card-read">{{ item.reading_time }} мин чтения</span>
+                <a class="card-link" href="{{ item.url }}" target="_blank" rel="noopener noreferrer">
+                  Открыть подробнее
+                  <span aria-hidden="true">→</span>
+                </a>
+              </div>
+            </div>
+          </article>
+          {% endfor %}
+
+          <div class="empty-state" id="vacancy-empty" hidden>
+            <div class="empty-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7M4 7h16v12H4zM4 12h16M10 12v2h4v-2"/></svg>
+            </div>
+            <p class="kicker">Вакансии</p>
+            <h3>Проверенных вакансий в этом выпуске нет</h3>
+            <p>Мы не публикуем неподтверждённые вакансии. На {{ compiled_display }} в открытых источниках не нашлось активной релевантной роли с подтверждённой датой и прямой ссылкой. Раздел оставлен пустым намеренно — актуальные позиции смотрите на карьерных страницах организаций.</p>
+            <ul class="empty-links">
+              {% for link in vacancy_links %}
+              <li>
+                <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
+                  {{ link.label }}
+                  <span aria-hidden="true">↗</span>
+                </a>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+
+          <div class="empty-state empty-state-simple" id="generic-empty" hidden>
+            <div class="empty-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 11a8 8 0 1 1 3 6.2M4 11V5m0 6h6"/></svg>
+            </div>
+            <h3>По этой теме материалов пока нет</h3>
+            <p>Попробуйте другой фильтр или вернитесь ко всем публикациям выпуска.</p>
+            <button class="btn btn-secondary reset-filter" type="button">Показать все материалы</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tinted" id="organizations" aria-labelledby="org-title">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-head-copy">
+            <p class="kicker">Кто стоит за материалами</p>
+            <h2 id="org-title">Организации выпуска</h2>
+            <p class="section-lead">Университеты, исследовательские центры и научные издатели, чьи работы попали в дайджест. Ссылки ведут на официальные сайты.</p>
+          </div>
+        </div>
+
+        <div class="org-grid">
+          {% for org in organizations %}
+          <a class="org-card" href="{{ org.url }}" target="_blank" rel="noopener noreferrer" data-reveal style="--delay: {{ loop.index0 * 40 }}ms">
+            <span class="org-mark" aria-hidden="true">{{ org.short }}</span>
+            <span class="org-body">
+              <strong>{{ org.name }}</strong>
+              <span>{{ org.focus }}</span>
+              <small>{{ org.country }}</small>
+            </span>
+            <span class="org-arrow" aria-hidden="true">↗</span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="method" aria-labelledby="method-title">
+      <div class="container method-layout">
+        <div class="method-intro">
+          <p class="kicker">Редакционная политика</p>
+          <h2 id="method-title">Как собран выпуск</h2>
+          <p class="section-lead">Дайджест собирается вручную по открытым публикациям. Мы проверяем дату, первоисточник и формулировки — и оставляем раздел пустым, если подтверждённых данных нет.</p>
+          <div class="method-note">
+            <strong>Окно выпуска</strong>
+            <span>{{ period_display }}</span>
+          </div>
+        </div>
+
+        <ol class="method-list">
+          <li data-reveal>
+            <span class="method-num" aria-hidden="true">01</span>
+            <div>
+              <h3>Дата внутри окна</h3>
+              <p>В выпуск попадают материалы, опубликованные с {{ period_display }}. Дата карточки — дата публикации новости, а не дата исследования.</p>
+            </div>
+          </li>
+          <li data-reveal>
+            <span class="method-num" aria-hidden="true">02</span>
+            <div>
+              <h3>Ссылка на первоисточник</h3>
+              <p>Каждая карточка ведёт на публикацию издателя, университета или научного журнала. Мы не подменяем ссылки редиректами и не публикуем материалы без проверяемого адреса.</p>
+            </div>
+          </li>
+          <li data-reveal>
+            <span class="method-num" aria-hidden="true">03</span>
+            <div>
+              <h3>Перевод без домыслов</h3>
+              <p>Заголовки и описания переведены на русский. Если результат заявлен авторами как предварительный, это прямо указано в тексте карточки.</p>
+            </div>
+          </li>
+          <li data-reveal>
+            <span class="method-num" aria-hidden="true">04</span>
+            <div>
+              <h3>Вакансии — только подтверждённые</h3>
+              <p>Вакансия попадает в дайджест, только если у неё есть активная страница, дата и понятная роль. При отсутствии такой позиции раздел остаётся пустым и объясняет почему.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="subscribe" id="subscribe" aria-labelledby="subscribe-title">
+      <div class="container">
+        <div class="subscribe-panel">
+          <div class="subscribe-copy">
+            <p class="kicker">Раз в месяц</p>
+            <h2 id="subscribe-title">Следующий выпуск — без информационного шума</h2>
+            <p>Одно письмо с отобранными публикациями, ссылками на первоисточники и короткими пояснениями. Никакой рекламы и перепродажи адресов.</p>
+            <ul class="subscribe-points">
+              <li>10–12 проверенных материалов</li>
+              <li>Только открытые источники</li>
+              <li>Понятные summaries на русском</li>
+            </ul>
+          </div>
+
+          <form class="subscribe-form" id="subscribe-form" action="/api/subscribe" method="post" novalidate>
+            <label for="email">Email для подписки</label>
+            <div class="input-row">
+              <input
+                type="email"
+                id="email"
+                name="email"
+                inputmode="email"
+                autocomplete="email"
+                placeholder="you@example.com"
+                required
+                aria-describedby="subscribe-hint"
+              >
+              <button class="btn btn-primary" type="submit">Подписаться</button>
+            </div>
+            <p class="form-hint" id="subscribe-hint">Демо-режим: адрес сохраняется локально в <code>data/subscribers.json</code>, автоматическая рассылка не подключена.</p>
+            <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="#top">
+          <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="brand-text"><strong>Гибкий слой</strong><small>дайджест гибкой электроники</small></span>
+        </a>
+        <p>Независимый дайджест о гибкой и печатной электронике, носимых сенсорах и материалах. Собран вручную по открытым публикациям.</p>
+      </div>
+
+      <nav class="footer-nav" aria-label="Навигация в подвале">
+        <h3>Разделы</h3>
+        <ul>
+          <li><a href="#news">Дайджест</a></li>
+          <li><a href="#topics">Темы</a></li>
+          <li><a href="#organizations">Организации</a></li>
+          <li><a href="#method">Методика</a></li>
+          <li><a href="#subscribe">Подписка</a></li>
+        </ul>
+      </nav>
+
+      <div class="footer-col">
+        <h3>Источники</h3>
+        <p>Все ссылки ведут на сайты издателей, университетов и научных журналов. Доступ к полным текстам может требовать подписки на стороне издателя.</p>
+      </div>
+
+      <div class="footer-col">
+        <h3>Данные</h3>
+        <p>Выпуск собран {{ compiled_display }}. Период: {{ period_display }}. Материалы и ссылки хранятся в <code>data/news.json</code>.</p>
+      </div>
+    </div>
+
+    <div class="container footer-bottom">
+      <p>© 2026 «Гибкий слой». Дайджест не является научной публикацией.</p>
+      <a href="#top">Наверх ↑</a>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+</body>
+</html>

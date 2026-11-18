@@ -1,7 +1,10 @@
 """Гибкий слой — Flask-дайджест гибкой электроники.
 
-Запуск:
+Локальный запуск:
     python app.py
+
+Production-запуск (в том числе Render Free):
+    gunicorn --bind 0.0.0.0:$PORT app:app
 """
 
 from __future__ import annotations
@@ -15,7 +18,6 @@ from flask import Flask, jsonify, render_template, request
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_FILE = BASE_DIR / "data" / "news.json"
-SUBSCRIBERS_FILE = BASE_DIR / "data" / "subscribers.json"
 
 RU_MONTHS = {
     1: "января",
@@ -206,42 +208,19 @@ def refresh_digest():
 
 @app.post("/api/subscribe")
 def subscribe():
-    """Сохраняет email локально (демо-режим, без отправки писем)."""
+    """Демо-режим: проверяет email, но ничего не сохраняет и не отправляет."""
     payload = request.get_json(silent=True) or request.form
     email = str(payload.get("email", "")).strip().lower()
 
     if not EMAIL_RE.match(email) or len(email) > 254:
         return jsonify(ok=False, message="Проверьте формат email и попробуйте ещё раз."), 400
 
-    subscribers: list[str] = []
-    if SUBSCRIBERS_FILE.exists():
-        try:
-            loaded = json.loads(SUBSCRIBERS_FILE.read_text(encoding="utf-8"))
-            if isinstance(loaded, list):
-                subscribers = [str(value) for value in loaded]
-        except (json.JSONDecodeError, OSError):
-            subscribers = []
-
-    if email not in subscribers:
-        subscribers.append(email)
-        try:
-            SUBSCRIBERS_FILE.parent.mkdir(parents=True, exist_ok=True)
-            SUBSCRIBERS_FILE.write_text(
-                json.dumps(subscribers, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-        except OSError:
-            return (
-                jsonify(
-                    ok=False,
-                    message="Не удалось сохранить подписку. Попробуйте позже.",
-                ),
-                500,
-            )
-
     return jsonify(
         ok=True,
-        message="Готово! Адрес сохранён. Это демо-режим: автоматическая рассылка пока не подключена.",
+        message=(
+            "Подписка пока демонстрационная: адрес не сохраняется, "
+            "постоянное сохранение и рассылка ещё не подключены."
+        ),
     )
 
 

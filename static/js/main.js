@@ -104,11 +104,13 @@
       if (matches) visible += 1;
     });
 
-    if (vacancyEmpty) vacancyEmpty.hidden = !isJobs;
+    if (vacancyEmpty) vacancyEmpty.hidden = !isJobs || visible > 0;
     if (genericEmpty) genericEmpty.hidden = isJobs || visible > 0;
 
     if (filterStatus) {
-      if (isJobs) {
+      if (isJobs && visible > 0) {
+        filterStatus.textContent = `Показано ${visible} из ${totalCards} вакансий`;
+      } else if (isJobs) {
         filterStatus.textContent =
           "Проверенных вакансий: 0. Показаны карьерные страницы организаций.";
       } else if (visible === 0) {
@@ -146,7 +148,16 @@
   const refreshStatus = document.getElementById("refresh-status");
   const SVG_NS = "http://www.w3.org/2000/svg";
 
-  let currentBatch = 1;
+  let refreshInFlight = false;
+
+  // Активный тег берётся из DOM в момент нажатия кнопки, а не из последнего
+  // успешного ответа: пользователь мог переключить фильтр прямо перед кликом.
+  const getActiveTag = () => {
+    const active = filterButtons.find(
+      (button) => button.getAttribute("aria-pressed") === "true"
+    );
+    return active?.dataset.filter || "all";
+  };
 
   const padNumber = (value) => String(value).padStart(2, "0");
 
@@ -168,6 +179,7 @@
     const article = document.createElement("article");
     article.className = `news-card tone-${item.tone || "cyan"}`;
     article.dataset.topics = (item.topics || []).join(" ");
+    if (item.tft_rank !== undefined) article.dataset.tftRank = String(item.tft_rank);
     article.setAttribute("data-reveal", "");
     article.style.setProperty("--delay", `${index * 45}ms`);
 
@@ -224,6 +236,12 @@
     summary.className = "card-summary";
     summary.textContent = item.summary || "";
 
+    const relevance = item.tft_note ? document.createElement("p") : null;
+    if (relevance) {
+      relevance.className = "card-relevance";
+      relevance.textContent = item.tft_note;
+    }
+
     const tagList = document.createElement("ul");
     tagList.className = "tag-list";
     tagList.setAttribute("aria-label", "Темы материала");
@@ -254,7 +272,9 @@
     cardLink.append(arrow);
 
     footer.append(read, cardLink);
-    body.append(meta, title, summary, tagList, footer);
+    body.append(meta, title, summary);
+    if (relevance) body.append(relevance);
+    body.append(tagList, footer);
     article.append(visual, body);
 
     return article;
@@ -298,6 +318,27 @@
     }
   };
 
+  const updatePeriodAndStats = (data) => {
+    if (data.period_display) {
+      document.querySelectorAll("[data-period]").forEach((node) => {
+        node.textContent = data.period_display;
+      });
+    }
+    if (data.period_range) {
+      document.querySelectorAll("[data-period-range]").forEach((node) => {
+        node.textContent = data.period_range;
+      });
+    }
+
+    const stats = data.stats || {};
+    if (stats.topics !== undefined) setText("#hero-topics-count", stats.topics);
+    if (stats.days !== undefined) {
+      setText("#hero-days-count", stats.days);
+      setText("#news-days-count", stats.days);
+    }
+    if (stats.days_label !== undefined) setText("#news-days-label", stats.days_label);
+  };
+
   const replaceCards = (items) => {
     cards.forEach((card) => card.remove());
 
@@ -333,51 +374,67 @@
   };
 
   const refreshDigest = async () => {
-    if (!refreshButton) return;
+    if (!refreshButton || refreshInFlight) return;
+    refreshInFlight = true;
 
-    const nextBatch = currentBatch === 1 ? 2 : 1;
+    const activeTag = getActiveTag();
+    const activeLabel =
+      filterButtons
+        .find((button) => button.dataset.filter === activeTag)
+        ?.querySelector("span")?.textContent || "Все";
+
     setRefreshLoading(true);
-    announceRefresh("Ищем другую подборку…");
+    announceRefresh(
+      activeTag === "jobs"
+        ? "Ищем подходящие вакансии за последний месяц…"
+        : `Ищем новые публикации по тегу «${activeLabel.trim()}» за последний месяц…`
+    );
     if (newsGrid) newsGrid.setAttribute("aria-busy", "true");
 
     try {
-      const response = await fetch(`/api/refresh?batch=${nextBatch}`, {
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `/api/refresh?tag=${encodeURIComponent(activeTag)}`,
+        {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        }
+      );
       const data = await response.json().catch(() => ({}));
 
-      if (!response.ok || !data.ok) {
-        throw new Error(
-          data.message || "Не удалось обновить подборку. Попробуйте ещё раз."
+      if (!data.ok) {
+        announceRefresh(
+          data.message || "Не удалось обновить подборку. Текущая подборка сохранена.",
+          true
         );
+        return;
       }
 
       if (!Array.isArray(data.items) || data.items.length === 0) {
-        throw new Error("Сервер вернул пустую подборку. Попробуйте ещё раз.");
+        announceRefresh("Новых публикаций нет. Текущая подборка сохранена.", true);
+        return;
       }
 
       replaceCards(data.items);
       updateCounts(data.counts);
       updateSources(data.sources);
       updateCompleteness(data);
+      updatePeriodAndStats(data);
 
       const count = data.stats ? data.stats.items : data.items.length;
       setText("#hero-count", count);
       setText("#device-count", count);
       setText("#hero-lead-count", count);
 
-      currentBatch = data.batch || nextBatch;
-      setFilter("all");
-      announceRefresh(
-        `Подборка обновлена: ${count} проверенных публикаций за тот же период.`
-      );
+      // Активный тег не сбрасывается: после обновления остаётся тот же фильтр.
+      setFilter(data.active_tag || activeTag);
+      announceRefresh(data.message || `Подборка обновлена: ${count} публикаций.`);
     } catch (error) {
       announceRefresh(
-        error.message || "Не удалось обновить подборку. Попробуйте ещё раз.",
+        error.message || "Не удалось обновить подборку. Текущая подборка сохранена.",
         true
       );
     } finally {
+      refreshInFlight = false;
       setRefreshLoading(false);
       if (newsGrid) newsGrid.removeAttribute("aria-busy");
     }

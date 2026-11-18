@@ -14,7 +14,10 @@ import re
 from datetime import date
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, make_response, render_template, request
+
+import news_sources
+import visitor_history
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_FILE = BASE_DIR / "data" / "news.json"
@@ -35,6 +38,8 @@ RU_MONTHS = {
 }
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$")
+COOKIE_MAX_AGE = 365 * 24 * 60 * 60
+REFRESH_TARGET_COUNT = 10
 
 app = Flask(__name__)
 
@@ -79,14 +84,29 @@ def format_period(start_value: str, end_value: str) -> str:
     )
 
 
-def prepare_items(raw_items: list[dict], meta: dict) -> tuple[list[dict], bool]:
+def format_period_range(start_value: str, end_value: str) -> str:
+    """Формат для фразы «выпуск охватывает срок с … по …»."""
+    start = date.fromisoformat(start_value)
+    end = date.fromisoformat(end_value)
+    if start.year == end.year:
+        return (
+            f"с {start.day} {RU_MONTHS[start.month]} "
+            f"по {end.day} {RU_MONTHS[end.month]} {end.year}"
+        )
+    return (
+        f"с {start.day} {RU_MONTHS[start.month]} {start.year} "
+        f"по {end.day} {RU_MONTHS[end.month]} {end.year}"
+    )
+
+
+def prepare_items(raw_items: list[dict], start: date, end: date) -> tuple[list[dict], bool]:
     """Нормализует карточки: порядок, даты, номера и проверка окна."""
     # Сначала фиксируем редакционный порядок, затем сортируем по дате (новые выше).
+    # Стабильная сортировка по рангу TFT поднимает релевантные материалы,
+    # не меняя порядок остальных карточек внутри своей группы.
     items = sorted(raw_items, key=lambda item: item.get("order", 0))
     items.sort(key=lambda item: item["date"], reverse=True)
-
-    start = date.fromisoformat(meta["period_start"])
-    end = date.fromisoformat(meta["period_end"])
+    items.sort(key=lambda item: item.get("tft_rank", 3))
 
     for index, item in enumerate(items, start=1):
         item["date_display"] = format_ru_date(item["date"])
@@ -98,24 +118,18 @@ def prepare_items(raw_items: list[dict], meta: dict) -> tuple[list[dict], bool]:
     return items, dates_in_window
 
 
-def build_page_data(batch: int = 1) -> dict:
-    """Готовит данные для шаблона и проверяет целостность выпуска."""
-    digest = load_digest()
-    meta = digest["meta"]
-    filters = digest["filters"]
-    refresh = digest.get("refresh", {})
-
-    if batch == 2:
-        raw_items = refresh.get("items", [])
-        target_count = int(refresh.get("target_count", len(raw_items)))
-    else:
-        raw_items = digest["items"]
-        target_count = int(meta["target_count"])
-
-    items, dates_in_window = prepare_items(raw_items, meta)
+def build_payload(
+    raw_items: list[dict],
+    start: date,
+    end: date,
+    target_count: int,
+    meta: dict,
+    filters: list[dict],
+) -> dict:
+    """Общие показатели страницы для любого набора карточек."""
+    items, dates_in_window = prepare_items(raw_items, start, end)
     is_complete = len(items) == target_count and dates_in_window
 
-    # Считаем покрытие тем: столько карточек покажет каждый фильтр.
     counts = {}
     for item_filter in filters:
         slug = item_filter["slug"]
@@ -129,24 +143,16 @@ def build_page_data(batch: int = 1) -> dict:
         for item_filter in filters
         if item_filter["slug"] not in {"all", "jobs"}
     ]
-    start = date.fromisoformat(meta["period_start"])
-    end = date.fromisoformat(meta["period_end"])
     period_days = (end - start).days + 1
 
     return {
-        "digest": digest,
-        "meta": meta,
         "items": items,
-        "filters": filters,
         "counts": counts,
-        "organizations": digest.get("organizations", []),
-        "vacancy_links": meta.get("vacancy_links", []),
         "is_complete": is_complete,
         "dates_in_window": dates_in_window,
-        "period_display": format_period(meta["period_start"], meta["period_end"]),
-        "compiled_display": format_ru_date(meta["compiled_at"]),
+        "period_display": format_period(start.isoformat(), end.isoformat()),
+        "period_range": format_period_range(start.isoformat(), end.isoformat()),
         "target_count": target_count,
-        "batch": batch,
         "stats": {
             "items": len(items),
             "topics": len(research_topics),
@@ -157,17 +163,75 @@ def build_page_data(batch: int = 1) -> dict:
     }
 
 
+def build_page_data(batch: int = 1) -> dict:
+    """Данные исходного выпуска (batch=1/2 сохраняются для /health)."""
+    digest = load_digest()
+    meta = digest["meta"]
+    filters = digest["filters"]
+    refresh = digest.get("refresh", {})
+
+    if batch == 2:
+        raw_items = refresh.get("items", [])
+        target_count = int(refresh.get("target_count", len(raw_items)))
+    else:
+        raw_items = digest["items"]
+        target_count = int(meta["target_count"])
+
+    # И стартовый выпуск, и обновление показывают одно и то же скользящее окно:
+    # сегодня минус один календарный месяц … сегодня. Даты из JSON не используем.
+    start, end = news_sources.sliding_period()
+    payload = build_payload(raw_items, start, end, target_count, meta, filters)
+
+    return {
+        "digest": digest,
+        "meta": meta,
+        "filters": filters,
+        "organizations": digest.get("organizations", []),
+        "vacancy_links": meta.get("vacancy_links", []),
+        "compiled_display": format_ru_date(meta["compiled_at"]),
+        "batch": batch,
+        **payload,
+    }
+
+
+def set_visitor_cookie(response, visitor_id: str, is_new: bool):
+    """Закрепляет устойчивый идентификатор анонимного посетителя."""
+    if is_new:
+        response.set_cookie(
+            visitor_history.VISITOR_COOKIE,
+            visitor_id,
+            max_age=COOKIE_MAX_AGE,
+            httponly=True,
+            samesite="Lax",
+            secure=request.is_secure,
+        )
+    response.headers["Vary"] = "Cookie"
+    return response
+
+
 @app.get("/")
 def index():
-    """Главная страница дайджеста."""
-    return render_template("index.html", **build_page_data())
+    """Главная страница дайджеста.
+
+    Исходные карточки тоже считаются показанными: они попадают в историю,
+    чтобы следующее обновление не вернуло их повторно.
+    """
+    data = build_page_data()
+    visitor_id, is_new = visitor_history.get_visitor_id(request)
+    visitor_history.add_seen(
+        visitor_id, [news_sources.item_key(item) for item in data["items"]]
+    )
+
+    response = make_response(render_template("index.html", **data))
+    return set_visitor_cookie(response, visitor_id, is_new)
 
 
 @app.get("/health")
 def health():
-    """Небольшой служебный эндпоинт для проверки данных."""
+    """Служебная проверка данных и подключённых источников."""
     main = build_page_data(1)
     refreshed = build_page_data(2)
+    start, end = news_sources.sliding_period()
     return jsonify(
         ok=True,
         items=len(main["items"]),
@@ -176,34 +240,175 @@ def health():
         refresh_items=len(refreshed["items"]),
         refresh_complete=refreshed["is_complete"],
         refresh_dates_in_window=refreshed["dates_in_window"],
+        mode="live",
+        period_start=start.isoformat(),
+        period_end=end.isoformat(),
+        live_sources=[name for name, _ in news_sources.FETCHERS],
+        vacancy_sources=[name for name, _ in news_sources.JOB_FETCHERS],
+        history_file=str(visitor_history.history_path()),
+    )
+
+
+def _requested_tag(raw_tag, filters: list[dict]) -> str:
+    """Возвращает тег, выбранный в интерфейсе в момент нажатия кнопки."""
+    candidate = str(raw_tag or "all").strip().lower()
+    known = {item["slug"] for item in filters}
+    return candidate if candidate in known else "all"
+
+
+def _tag_label(tag: str, filters: list[dict]) -> str:
+    for item in filters:
+        if item["slug"] == tag:
+            return item["label"]
+    return "Все"
+
+
+def _merge_collected(collected: dict, extra: dict) -> dict:
+    """Добавляет результаты дополнительного поиска без дубликатов."""
+    known = {item["id"] for item in collected["items"]}
+    for item in extra["items"]:
+        if item["id"] in known:
+            continue
+        known.add(item["id"])
+        collected["items"].append(item)
+    collected["errors"] = list(dict.fromkeys(collected["errors"] + extra["errors"]))
+    collected["sources"] = list(dict.fromkeys(collected["sources"] + extra["sources"]))
+    return collected
+
+
+def _refresh_message(
+    tag: str, label: str, count: int, target: int, period: str, shortfall: bool
+) -> str:
+    noun = "вакансий" if tag == "jobs" else "публикаций"
+    scope = "по всем темам" if tag == "all" else f"по тегу «{label}»"
+    if shortfall:
+        return (
+            f"Найдено {count} из {target} подходящих {noun} {scope} за период "
+            f"{period}. Это меньше {target}: дополнительный поиск в тех же "
+            "источниках и периоде не дал новых релевантных материалов, поэтому "
+            "подборка не дополнялась неподходящими или уже показанными записями."
+        )
+    return (
+        f"Подборка обновлена: {count} новых {noun} {scope} за период {period}."
     )
 
 
 @app.get("/api/refresh")
 def refresh_digest():
-    """Возвращает другую подборку за тот же период и по тем же темам."""
-    batch = request.args.get("batch", type=int)
-    if batch is None:
-        batch = 2
-    if batch not in (1, 2):
-        return jsonify(ok=False, message="Доступны партии batch=1 и batch=2."), 400
+    """Новый поиск по тегу, который был активен при нажатии кнопки.
 
-    data = build_page_data(batch)
-    response = jsonify(
-        ok=True,
-        batch=batch,
-        next_batch=1 if batch == 2 else 2,
-        target_count=data["target_count"],
-        is_complete=data["is_complete"],
-        dates_in_window=data["dates_in_window"],
-        period_display=data["period_display"],
-        counts=data["counts"],
-        stats=data["stats"],
-        sources=data["sources"],
-        items=data["items"],
+    Для «Все» материалы выбираются случайно с чередованием тем, для
+    конкретного тега — только по его содержанию, для «Вакансий» — только
+    реальные вакансии из подключённых keyless API. Повторно показанные
+    материалы исключаются по истории посетителя. Если все источники
+    недоступны, текущая подборка остаётся на странице.
+    """
+    digest = load_digest()
+    meta = digest["meta"]
+    filters = digest["filters"]
+    target = REFRESH_TARGET_COUNT
+    tag = _requested_tag(request.args.get("tag"), filters)
+    label = _tag_label(tag, filters)
+
+    visitor_id, is_new = visitor_history.get_visitor_id(request)
+    seen_keys = visitor_history.load_seen(visitor_id)
+
+    # Период считается заново на каждый запрос, без зашитых дат.
+    start, end = news_sources.sliding_period()
+    collected = news_sources.collect_candidates(topic=tag)
+    all_sources_failed = bool(collected["errors"]) and not collected["items"]
+
+    def choose():
+        return news_sources.select_items(
+            collected["items"], seen_keys, target, start, end, topic=tag
+        )
+
+    selected = choose()
+
+    # Если подходящих меньше десяти, пробуем ещё один поиск в тех же
+    # источниках и том же периоде с другими поисковыми формулировками.
+    if len(selected) < target and not all_sources_failed:
+        extra = news_sources.collect_candidates(topic=tag, fallback=True)
+        collected = _merge_collected(collected, extra)
+        all_sources_failed = bool(collected["errors"]) and not collected["items"]
+        selected = choose()
+
+    if not selected:
+        if all_sources_failed:
+            reason = "source_unavailable"
+            if tag == "jobs":
+                message = (
+                    "Источники вакансий временно недоступны. "
+                    "Текущая подборка сохранена — попробуйте позже."
+                )
+            else:
+                message = (
+                    "Источники новостей временно недоступны. "
+                    "Текущая подборка сохранена — попробуйте позже."
+                )
+            status = 503
+        else:
+            reason = "no_new_items"
+            if tag == "jobs":
+                message = (
+                    "За последний месяц не найдено подходящих вакансий по тематике "
+                    "сайта. Текущая подборка сохранена; актуальные позиции смотрите "
+                    "на карьерных страницах организаций."
+                )
+            elif tag == "all":
+                message = (
+                    "Новых публикаций за последний месяц не осталось. "
+                    "Текущая подборка сохранена."
+                )
+            else:
+                message = (
+                    f"По тегу «{label}» за последний месяц не найдено новых "
+                    "подходящих материалов. Текущая подборка сохранена."
+                )
+            status = 200
+
+        response = make_response(
+            jsonify(
+                ok=False,
+                reason=reason,
+                message=message,
+                kept_current=True,
+                active_tag=tag,
+                errors=collected["errors"],
+            ),
+            status,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return set_visitor_cookie(response, visitor_id, is_new)
+
+    visitor_history.add_seen(visitor_id, [item["id"] for item in selected])
+    payload = build_payload(selected, start, end, target, meta, filters)
+    count = payload["stats"]["items"]
+
+    response = make_response(
+        jsonify(
+            ok=True,
+            mode="live",
+            active_tag=tag,
+            tag_label=label,
+            target_count=payload["target_count"],
+            is_complete=payload["is_complete"],
+            shortfall=count < target,
+            dates_in_window=payload["dates_in_window"],
+            period_display=payload["period_display"],
+            period_range=payload["period_range"],
+            counts=payload["counts"],
+            stats=payload["stats"],
+            sources=collected["sources"] if tag == "jobs" else payload["sources"],
+            items=payload["items"],
+            message=_refresh_message(
+                tag, label, count, target, payload["period_display"], count < target
+            ),
+            errors=collected["errors"],
+        )
     )
     response.headers["Cache-Control"] = "no-store"
-    return response
+    return set_visitor_cookie(response, visitor_id, is_new)
 
 
 @app.post("/api/subscribe")

@@ -16,6 +16,9 @@ env/
 # Private subscriber information
 data/subscribers.json
 
+# Persistent per-visitor digest history (created at runtime)
+data/visitor_history.json*
+
 # Local databases and logs
 *.db
 *.sqlite3

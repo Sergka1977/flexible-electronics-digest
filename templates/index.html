@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Гибкий слой — дайджест гибкой электроники</title>
-  <meta name="description" content="Дайджест гибкой электроники: 11 проверенных публикаций о печатных схемах, носимых сенсорах и новых материалах за 9 октября — 9 ноября 2026 года.">
+  <meta name="description" content="Дайджест гибкой электроники: {{ stats['items'] }} проверенных публикаций о печатных схемах, носимых сенсорах и новых материалах {{ period_range }}.">
   <meta name="theme-color" content="#f4fbfd">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Гибкий слой — дайджест гибкой электроники">
-  <meta property="og:description" content="11 проверенных публикаций о гибких материалах, печатных схемах и носимых сенсорах. Только реальные источники и ссылки.">
+  <meta property="og:description" content="{{ stats['items'] }} проверенных публикаций о гибких материалах, печатных схемах и носимых сенсорах. Только реальные источники и ссылки.">
   <meta property="og:locale" content="ru_RU">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -55,7 +55,7 @@
         <div class="hero-copy">
           <p class="eyebrow">
             <span class="eyebrow-dot" aria-hidden="true"></span>
-            {{ meta.edition }} · {{ period_display }}
+            Подборка за период <span data-period-range>{{ period_range }}</span>
           </p>
           <h1 id="hero-title">Электроника, которая <span class="grad">гнётся, дышит и чувствует</span></h1>
           <p class="lead"><span id="hero-lead-count">{{ stats["items"] }}</span> проверенных публикаций о гибких материалах, печатных схемах и носимых сенсорах. Только реальные источники, даты и ссылки — без выдуманных новостей и вакансий.</p>
@@ -75,11 +75,11 @@
             </div>
             <div>
               <dt>Тем</dt>
-              <dd>{{ stats.topics }}</dd>
+              <dd id="hero-topics-count">{{ stats.topics }}</dd>
             </div>
             <div>
               <dt>Дней в окне</dt>
-              <dd>{{ stats.days }}</dd>
+              <dd id="hero-days-count">{{ stats.days }}</dd>
             </div>
           </dl>
         </div>
@@ -141,7 +141,7 @@
         <div class="section-head">
           <div class="section-head-copy">
             <p class="kicker">Дайджест</p>
-            <h2 id="news-title">Главное за {{ stats.days }} {{ stats.days_label }}</h2>
+            <h2 id="news-title">Главное за <span id="news-days-count">{{ stats.days }}</span> <span id="news-days-label">{{ stats.days_label }}</span></h2>
             <p class="section-lead">От самозаряжающихся датчиков до гибких солнечных модулей. Выберите тему, чтобы отфильтровать выпуск, и переходите к первоисточнику.</p>
           </div>
           <div class="digest-controls">
@@ -160,7 +160,7 @@
               </svg>
               <span class="btn-refresh-label">Обновить подборку</span>
             </button>
-            <p class="refresh-hint" id="refresh-hint">Заменит карточки на другой проверенный набор за тот же период.</p>
+            <p class="refresh-hint" id="refresh-hint">Подберёт до 10 новых материалов по выбранному тегу за последний месяц, исключая уже показанные.</p>
           </div>
         </div>
 
@@ -197,6 +197,7 @@
             class="news-card tone-{{ item.tone }}"
             data-reveal
             data-topics="{{ item.topics|join(' ') }}"
+            {% if item.tft_rank is defined %}data-tft-rank="{{ item.tft_rank }}"{% endif %}
             style="--delay: {{ loop.index0 * 45 }}ms"
           >
             <div class="card-visual">
@@ -219,6 +220,7 @@
                 <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
               </h3>
               <p class="card-summary">{{ item.summary }}</p>
+              {% if item.tft_note %}<p class="card-relevance">{{ item.tft_note }}</p>{% endif %}
 
               <ul class="tag-list" aria-label="Темы материала">
                 {% for tag in item.tags %}
@@ -302,7 +304,7 @@
           <p class="section-lead">Дайджест собирается вручную по открытым публикациям. Мы проверяем дату, первоисточник и формулировки — и оставляем раздел пустым, если подтверждённых данных нет.</p>
           <div class="method-note">
             <strong>Окно выпуска</strong>
-            <span>{{ period_display }}</span>
+            <span data-period>{{ period_display }}</span>
           </div>
         </div>
 
@@ -311,7 +313,7 @@
             <span class="method-num" aria-hidden="true">01</span>
             <div>
               <h3>Дата внутри окна</h3>
-              <p>В выпуск попадают материалы, опубликованные с {{ period_display }}. Дата карточки — дата публикации новости, а не дата исследования.</p>
+              <p>В выпуск попадают материалы, опубликованные с <span data-period>{{ period_display }}</span>. Дата карточки — дата публикации новости, а не дата исследования.</p>
             </div>
           </li>
           <li data-reveal>
@@ -404,7 +406,7 @@
 
       <div class="footer-col">
         <h3>Данные</h3>
-        <p>Выпуск собран {{ compiled_display }}. Период: {{ period_display }}. Материалы и ссылки хранятся в <code>data/news.json</code>.</p>
+        <p>Выпуск собран {{ compiled_display }}. Период: <span data-period>{{ period_display }}</span>. Материалы исходного выпуска хранятся в <code>data/news.json</code>, новые подборки приходят из подключённых открытых источников.</p>
       </div>
     </div>
 
